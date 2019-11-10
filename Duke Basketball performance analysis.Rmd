@@ -1,0 +1,182 @@
+---
+title: "Duke Basketball performance analysis(final project for STA523)"
+author: "Sophia Zhu,Andy Cooper, Jingyi Zhang, Mingjie Zhao"
+date: "11/28/2018"
+output: html_document
+runtime: shiny
+---
+
+```{r message = F, echo = F}
+library(tidyverse)
+library(shiny)
+library(shinydashboard)
+library(janitor)
+library(tools)
+library(shinythemes)
+```
+
+
+```{r echo = F}
+#Load data
+players_data <- readRDS("players_data.rds")
+```
+
+
+```{r echo = F}
+#Function to get roster for given season
+get_roster <- function(s){
+  return(players_data %>% filter(season == s)) %>% 
+    .$name %>% 
+    unique() %>% 
+    sort()
+}
+```
+
+```{r echo = F}
+#Function to plot line plot
+plot_season <- function(p, s, c){
+  g <- players_data %>% 
+    filter(name == p, season == s, category == c) %>% 
+    ggplot(aes(x = date, y = quantity, color = factor(win))) + 
+    geom_point(size = 4) + 
+    geom_line(color = "black") + 
+    geom_hline(yintercept = 
+                 mean(players_data %>% filter(name == p, category == c) %>%
+                       .$quantity), col = "#4169e1") +
+    labs(x = "Date", y = c %>% toTitleCase()) +
+    theme(legend.position = "none") +
+    scale_color_manual(values = c("red", "black"))
+  return(g)
+}
+```
+
+
+Shiny App
+
+```{r echo = F}
+#UI
+ui <- fluidPage(
+    theme = shinytheme("cyborg"),
+  titlePanel("Duke Men's Basketball Application"),
+  sidebarLayout(
+    sidebarPanel = sidebarPanel(
+      selectInput(inputId = "select_season", label = h4("Select Season"), 
+                  choices = players_data$season %>% 
+                    unique() %>% sort() %>% rev()),
+      selectInput(inputId = "select_player", label = h4("Select Player"),
+                  choices = players_data$name %>% unique() %>% sort()),
+      selectInput(inputId = "select_category", label = h4("Select Statistic"),
+                  choices = players_data$category %>% unique() %>%
+                    toTitleCase(),
+                  selected = 1)
+    ),
+    mainPanel = mainPanel(
+      HTML(paste('<img align="middle"
+src=https://media.giphy.com/media/lhH0xqNPpenUk/giphy.gif width = 40% height = 100%>')),
+
+HTML(paste('<img align="middle"
+src=https://media.giphy.com/media/AFXYakZdPOEkxVqNyU/giphy.gif width = 40% height = 100%>')),
+
+      fluidRow(
+        column(3, uiOutput("player_image")),
+        column(8, uiOutput("player_summary"))
+      ),
+      fluidRow(
+        plotOutput("player_performance", click = "click_game")
+      )
+    )
+  )
+)
+```
+
+
+```{r echo = F}
+#SERVER
+server <- function(input, output, session){
+  #Reactive Values
+  state <- reactiveValues(
+    player_info = list()
+  )
+  
+  #Update roster based on season input
+  observe({
+    updateSelectizeInput(session = session, inputId = "select_player", 
+                         choices = get_roster(input$select_season))
+  })
+  
+  observe({
+    state$player_info <- players_data %>% 
+      filter(name == input$select_player & season == input$select_season) %>% 
+      select(name, number, position, height, 
+             weight, year, hometown, picture) %>% 
+      unique()
+  })
+  
+  #Output player summary
+  output$player_summary <- renderUI({
+    tags$p(paste("Jersey:", state$player_info$number[1]),
+           HTML("<br/>"),
+           paste("Year:", state$player_info$year[1]),
+           HTML("<br/>"),
+           paste("Position:", state$player_info$position[1]),
+           HTML("<br/>"),
+           paste("Hometown:", state$player_info$hometown[1]),
+           HTML("<br/>"),
+           paste("Height:", state$player_info$height[1]),
+           HTML("<br/>"),
+           paste0("Weight: ", state$player_info$weight[1], "lbs")
+    )
+  })
+  
+  #Output player image
+  output$player_image <- renderUI({
+    tags$img(src = state$player_info$picture[1], height = "150px")
+  })
+  
+  #Create line graph
+  output$player_performance <- renderPlot({
+    plot_season(input$select_player, 
+                input$select_season, input$select_category %>% tolower())
+  })
+  
+  observeEvent(input$click_game, {
+    game_data <- nearPoints(players_data, input$click_game, 
+                            threshold = 10, maxpoints = 1,
+                            addDist = F) %>% 
+      select(date, opponent, win, points_duke, points_other) %>% 
+      unique()
+    showModal(modalDialog(title = paste0("Duke vs. ", game_data$opponent,
+                                         " (", 
+                                         game_data$date %>% 
+                                           format("%B  %d, %Y"),
+                                         ")"),
+                          tags$p(
+                            tags$h3(paste("Duke:", game_data$points_duke)),
+                            HTML("<br/>"),
+                            tags$h3(paste0(game_data$opponent, ": ",
+                                           game_data$points_other))
+                          ),
+                          easyClose = T))
+  })
+  
+}
+```
+
+```{r echo = F}
+shinyApp(ui, server)
+```
+
+```{r eval = F, echo = F}
+plot_season <- function(p, s){
+  players_data %>% 
+    filter(name == p, season == s) %>% 
+    mutate(category = factor(category, 
+                             levels = c("points", "rebounds", "assists", "blocks", "steals", "fouls"),
+                             labels = c("Points", "Rebounds", "Assists", "Blocks", "Steals", "Fouls"))) %>% 
+    ggplot(aes(x = date, y = quantity, color = category)) + 
+    geom_point(size = 2) + 
+    geom_line(color = "#4169e1") + 
+    facet_grid(rows = vars(category), scales = "free") + 
+    theme(legend.position="none")
+}
+```
