@@ -1,5 +1,5 @@
 ---
-title: "Duke Basketball performance analysis(final project for STA523)"
+title: "Duke Basketball performance analysis"
 author: "Sophia Zhu,Andy Cooper, Jingyi Zhang, Mingjie Zhao"
 date: "11/28/2018"
 output: html_document
