@@ -1,6 +1,6 @@
 ---
 title: "Duke Basketball performance analysis"
-author: "Sophia Zhu,Andy Cooper, Jingyi Zhang, Mingjie Zhao"
+author: "Sophia Zhu"
 date: "11/28/2018"
 output: html_document
 runtime: shiny
